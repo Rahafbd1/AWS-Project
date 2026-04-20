@@ -1,0 +1,99 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Enterprise AWS Infrastructure - Project Two - Rahaf
+
+Resources:
+  # 1. VPC
+  rahafproject:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      Tags: [{Key: Name, Value: rahaf-project}]
+
+  # 2. Subnets
+  rahafpublic1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref rahafproject
+      CidrBlock: 10.0.1.0/24
+      AvailabilityZone: !Select [0, !GetAZs '']
+      MapPublicIpOnLaunch: true
+      Tags: [{Key: Name, Value: rahaf-public1}]
+
+  rahafpublic2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref rahafproject
+      CidrBlock: 10.0.2.0/24
+      AvailabilityZone: !Select [1, !GetAZs '']
+      MapPublicIpOnLaunch: true
+      Tags: [{Key: Name, Value: rahaf-public2}]
+
+  rahafprivate1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref rahafproject
+      CidrBlock: 10.0.3.0/24
+      AvailabilityZone: !Select [0, !GetAZs '']
+      Tags: [{Key: Name, Value: rahaf-private1}]
+
+  rahafprivate2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref rahafproject
+      CidrBlock: 10.0.4.0/24
+      AvailabilityZone: !Select [1, !GetAZs '']
+      Tags: [{Key: Name, Value: rahaf-private2}]
+
+  # 3. Security & IAM
+  rahafec2role:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: rahaf-ec2-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement: [{Effect: Allow, Principal: {Service: ec2.amazonaws.com}, Action: 'sts:AssumeRole'}]
+
+  # 4. Compute Layer (EC2)
+  rahafec21:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: t2.micro
+      SubnetId: !Ref rahafprivate1
+      ImageId: ami-0c55b159cbfafe1f0 # ملاحظة: تأكد من تحديث الـ AMI ID حسب منطقتك
+      Tags: [{Key: Name, Value: rahaf-ec2-1}]
+
+  rahafec22:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: t2.micro
+      SubnetId: !Ref rahafprivate2
+      ImageId: ami-0c55b159cbfafe1f0
+      Tags: [{Key: Name, Value: rahaf-ec2-2}]
+
+  # 5. Load Balancing
+  rahafalb:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: rahaf-alb
+      Subnets: [!Ref rahafpublic1, !Ref rahafpublic2]
+
+  rahaftg:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: rahaf-tg
+      VpcId: !Ref rahafproject
+      Port: 80
+      Protocol: HTTP
+
+  # 6. Monitoring
+  rahafalarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: rahaf-alarm
+      MetricName: CPUUtilization
+      Namespace: AWS/EC2
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 80
+      ComparisonOperator: GreaterThanThreshold
